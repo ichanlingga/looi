@@ -195,7 +195,7 @@ html,body{width:100%;height:100%;background:#0a0a0a;overflow:hidden;font-family:
 // ═══════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════
-const GROQ_KEY  = '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';
+const GROQ_KEY  = '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';
 const GROQ_MODEL= 'llama-3.3-70b-versatile';
 
 // ═══════════════════════════════════
@@ -409,9 +409,13 @@ async function askGroq(text){
     speak(reply);
   }catch(err){
     console.error('Groq error:',err);
-    showLooi('Error: '+err.message.slice(0,60));
+    const msg = err.message.includes('401') ? 'API Key salah/expired! Ganti key dulu.' 
+               : err.message.includes('429') ? 'Rate limit! Tunggu sebentar.'
+               : err.message.includes('fetch') ? 'No internet / CORS error'
+               : 'Error: '+err.message.slice(0,80);
+    showLooi('⚠️ '+msg);
     setMode('error');
-    setTimeout(()=>{ hideLooi(); restartRec(); },3000);
+    setTimeout(()=>{ hideLooi(); restartRec(); },5000);
   }
 }
 
