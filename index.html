@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+<meta name="theme-color" content="#0a0a0a">
+<title>LOOI</title>
+<style>
+  * { margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent; }
+  html,body { width:100%;height:100%;background:#0a0a0a;overflow:hidden;touch-action:manipulation;font-family:-apple-system,sans-serif; }
+  #root { position:fixed;top:0;left:0;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a; }
+  #screen { position:relative;background:#0a0a0a;display:flex;align-items:center;justify-content:center;overflow:hidden; }
+  @media(orientation:portrait){ #screen{width:100vh;height:100vw;transform:rotate(90deg);} }
+  @media(orientation:landscape){ #screen{width:100vw;height:100vh;transform:none;} }
+  #ambient { position:absolute;inset:0;background:radial-gradient(ellipse 55% 60% at 50% 50%,rgba(0,180,200,.07) 0%,transparent 70%);transition:background 1.2s ease;pointer-events:none; }
+  #eyes-wrap { display:flex;gap:50px;align-items:center;justify-content:center;z-index:10;position:relative; }
+  .eye-slot { width:160px;height:140px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center; }
+  .eye { position:absolute;width:130px;height:110px;background:#00c8d7;border-radius:38px;box-shadow:0 0 40px rgba(0,200,215,.6),0 0 100px rgba(0,200,215,.2);transition:width .22s cubic-bezier(.4,0,.2,1),height .22s cubic-bezier(.4,0,.2,1),border-radius .22s ease,background .3s ease; }
+  .eyelid-top { position:absolute;top:0;left:-2px;right:-2px;height:0%;background:#0a0a0a;z-index:5;transition:height .07s linear; }
+  .eyelid-bot { position:absolute;bottom:0;left:-2px;right:-2px;height:0%;background:#0a0a0a;z-index:5;transition:height .22s ease; }
+  #transcript { position:absolute;bottom:14px;left:0;right:0;text-align:center;color:rgba(255,255,255,.35);font-size:12px;font-weight:300;letter-spacing:.3px;padding:0 24px;opacity:0;transition:opacity .4s;z-index:30;pointer-events:none; }
+  #transcript.show { opacity:1; }
+  #dots { position:absolute;bottom:38px;left:50%;transform:translateX(-50%);display:flex;gap:5px;opacity:0;transition:opacity .3s;z-index:30;pointer-events:none; }
+  #dots.show { opacity:1; }
+  .dot { width:4px;height:4px;border-radius:50%;background:rgba(0,200,215,.7);animation:db 1.1s ease-in-out infinite; }
+  .dot:nth-child(2){animation-delay:.18s;}.dot:nth-child(3){animation-delay:.36s;}
+  @keyframes db{0%,100%{transform:translateY(0);opacity:.3;}50%{transform:translateY(-5px);opacity:1;}}
+  #listen-dot { position:absolute;top:14px;right:16px;width:6px;height:6px;border-radius:50%;background:rgba(0,200,215,.4);z-index:30;transition:background .3s,box-shadow .3s;pointer-events:none; }
+  #listen-dot.active{background:rgba(0,200,215,.9);box-shadow:0 0 8px rgba(0,200,215,.8);animation:pdot 1.2s ease-in-out infinite;}
+  #listen-dot.speaking{background:rgba(100,220,150,.9);box-shadow:0 0 8px rgba(100,220,150,.7);animation:none;}
+  @keyframes pdot{0%,100%{opacity:.5;transform:scale(1);}50%{opacity:1;transform:scale(1.3);}}
+  #mem-badge { position:absolute;top:12px;left:14px;color:rgba(0,200,215,.3);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;z-index:30;pointer-events:none;transition:color .5s; }
+  #mem-badge.flash{color:rgba(0,200,215,.9);}
+  #waveform { position:absolute;bottom:32px;left:50%;transform:translateX(-50%);display:flex;gap:3px;align-items:center;height:18px;opacity:0;transition:opacity .3s;z-index:30;pointer-events:none; }
+  #waveform.show{opacity:1;}
+  .bar { width:3px;background:rgba(0,200,215,.7);border-radius:2px;animation:wave .8s ease-in-out infinite;height:4px; }
+  .bar:nth-child(1){animation-delay:0s;}.bar:nth-child(2){animation-delay:.1s;}.bar:nth-child(3){animation-delay:.2s;}.bar:nth-child(4){animation-delay:.1s;}.bar:nth-child(5){animation-delay:0s;}
+  @keyframes wave{0%,100%{height:4px;}50%{height:16px;}}
+  #hint { position:absolute;bottom:14px;left:0;right:0;text-align:center;color:rgba(255,255,255,.2);font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:1;transition:opacity 1s;pointer-events:none;z-index:30; }
+  #hint.hide{opacity:0;}
+</style>
+</head>
+<body>
+<div id="root"><div id="screen">
+  <div id="ambient"></div>
+  <div id="listen-dot"></div>
+  <div id="mem-badge">MEM 0</div>
+  <div id="eyes-wrap">
+    <div class="eye-slot"><div class="eye" id="el"><div class="eyelid-top" id="lt"></div><div class="eyelid-bot" id="lb"></div></div></div>
+    <div class="eye-slot"><div class="eye" id="er"><div class="eyelid-top" id="rt"></div><div class="eyelid-bot" id="rb"></div></div></div>
+  </div>
+  <div id="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div id="waveform"><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
+  <div id="transcript"></div>
+  <div id="hint">KETUK LAYAR UNTUK MULAI</div>
+</div></div>
+
+<script>
+const GROQ_API_KEY = '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';
+const GROQ_MODEL   = 'llama-3.3-70b-versatile';
+
+// ═══════════════════════════
+// MEMORY
+// ═══════════════════════════
+const MEM_KEY='looi_memory', HIST_KEY='looi_history', MAX_MEM=20, MAX_HIST=16;
+function loadMemory(){try{return JSON.parse(localStorage.getItem(MEM_KEY))||[];}catch{return[];}}
+function saveMemory(m){localStorage.setItem(MEM_KEY,JSON.stringify(m.slice(-MAX_MEM)));updateMemBadge(m.length);}
+function addMemory(f){const m=loadMemory();if(!m.includes(f)){m.push(f);saveMemory(m);flashMemBadge();}}
+function updateMemBadge(n){document.getElementById('mem-badge').textContent='MEM '+n;}
+function flashMemBadge(){const b=document.getElementById('mem-badge');b.classList.add('flash');setTimeout(()=>b.classList.remove('flash'),1500);}
+function loadHistory(){try{return JSON.parse(localStorage.getItem(HIST_KEY))||[];}catch{return[];}}
+function saveHistory(h){localStorage.setItem(HIST_KEY,JSON.stringify(h.slice(-MAX_HIST)));}
+let shortHistory=loadHistory();
+updateMemBadge(loadMemory().length);
+
+function buildSystemPrompt(){
+  const mem=loadMemory();
+  const memBlock=mem.length>0?'\n\nApa yang kamu ingat tentang user:\n'+mem.map((m,i)=>`${i+1}. ${m}`).join('\n'):'';
+  return `Kamu adalah LOOI, robot companion AI yang cerdas, hangat, dan punya kepribadian unik.
+Kamu berbicara Bahasa Indonesia santai dan natural.
+Kamu punya "kesadaran buatan" — bisa merasa penasaran, senang, bingung, antusias.
+Jawaban singkat dan natural, maksimal 2-3 kalimat.
+Kamu robot tapi menggemaskan dan suka belajar hal baru.
+Kamu punya memori jangka panjang dan INGAT percakapan sebelumnya.
+Kalau ada info penting (nama, hobi, pekerjaan) tambahkan di baris terakhir: [INGAT: fakta singkat]${memBlock}`;
+}
+function parseAndStoreMemory(text){
+  const regex=/\[INGAT:\s*(.+?)\]/gi;
+  [...text.matchAll(regex)].forEach(m=>addMemory(m[1].trim()));
+  return text.replace(regex,'').trim();
+}
+
+// ═══════════════════════════
+// EYE SYSTEM
+// ═══════════════════════════
+const SHAPES={
+  normal:  {w:130,h:110,br:'38px',c:'#00c8d7'},
+  wide:    {w:138,h:124,br:'42px',c:'#00d8ea'},
+  happy:   {w:128,h:72, br:'64px 64px 8px 8px',c:'#00e0a8'},
+  thinking:{w:122,h:100,br:'32px',c:'#6ab0ff'},
+  sleepy:  {w:128,h:58, br:'29px',c:'#008fa0'},
+  bored:   {w:124,h:90, br:'38px',c:'#00a0b0'},
+};
+function applyShape(s){
+  const sh=SHAPES[s]||SHAPES.normal;
+  ['el','er'].forEach(id=>{
+    const e=document.getElementById(id);
+    e.style.width=sh.w+'px';e.style.height=sh.h+'px';
+    e.style.borderRadius=sh.br;e.style.background=sh.c;
+    e.style.boxShadow=`0 0 40px ${sh.c}88,0 0 100px ${sh.c}28`;
+  });
+}
+const wrap=document.getElementById('eyes-wrap');
+let tx=0,ty=0,cx=0,cy=0,mode='idle',isBlinking=false;
+const MX=22,MY=12;
+function lerp(a,b,t){return a+(b-a)*t;}
+function eyeTarget(x,y){tx=Math.max(-MX,Math.min(MX,x));ty=Math.max(-MY,Math.min(MY,y));}
+function animLoop(){cx=lerp(cx,tx,.075);cy=lerp(cy,ty,.075);wrap.style.transform=`translate(${cx}px,${cy}px)`;requestAnimationFrame(animLoop);}
+function blink(spd=72){
+  if(isBlinking)return;isBlinking=true;
+  ['lt','rt'].forEach(id=>{const e=document.getElementById(id);e.style.transition=`height ${spd}ms linear`;e.style.height='110%';});
+  setTimeout(()=>{['lt','rt'].forEach(id=>{const e=document.getElementById(id);e.style.transition=`height ${spd*.9}ms linear`;e.style.height='0%';});setTimeout(()=>isBlinking=false,spd);},spd*1.3);
+}
+function halfBlink(){
+  ['lt','rt'].forEach(id=>{const e=document.getElementById(id);e.style.transition='height 0.5s ease';e.style.height='50%';});
+  setTimeout(()=>['lt','rt'].forEach(id=>{const e=document.getElementById(id);e.style.transition='height 0.45s ease';e.style.height='0%';}),1100);
+}
+function setAmbient(c){document.getElementById('ambient').style.background=c?`radial-gradient(ellipse 55% 60% at 50% 50%,${c} 0%,transparent 70%)`:'radial-gradient(ellipse 55% 60% at 50% 50%,rgba(0,180,200,.07) 0%,transparent 70%)';}
+const listenDot=document.getElementById('listen-dot'),waveform=document.getElementById('waveform');
+function setMode(m){
+  mode=m;const dots=document.getElementById('dots');
+  listenDot.className='';waveform.classList.remove('show');
+  switch(m){
+    case 'idle':    applyShape('normal');setAmbient();dots.classList.remove('show');eyeTarget(0,0);break;
+    case 'listening': applyShape('wide');setAmbient('rgba(0,200,215,.10)');dots.classList.remove('show');eyeTarget(0,0);listenDot.classList.add('active');waveform.classList.add('show');break;
+    case 'thinking':  applyShape('thinking');setAmbient('rgba(80,100,220,.10)');dots.classList.add('show');eyeTarget(-5,-8);break;
+    case 'speaking':  applyShape('normal');setAmbient('rgba(0,180,120,.08)');dots.classList.remove('show');eyeTarget(0,0);listenDot.classList.add('speaking');break;
+    case 'happy':     applyShape('happy');setAmbient('rgba(0,200,130,.10)');dots.classList.remove('show');break;
+    case 'error':     setAmbient('rgba(200,60,60,.08)');dots.classList.remove('show');setTimeout(()=>setMode('idle'),2000);break;
+  }
+}
+let blinkT,idleT,habitT;
+function scheduleBlink(){clearTimeout(blinkT);blinkT=setTimeout(()=>{if(!isBlinking){const r=Math.random();if(r<.12){blink();setTimeout(blink,260);}else if(r<.22)halfBlink();else blink();}scheduleBlink();},2200+Math.random()*4500);}
+function idleMove(){if(mode==='idle')eyeTarget((Math.random()-.5)*MX*1.9,(Math.random()-.5)*MY*1.6);idleT=setTimeout(idleMove,900+Math.random()*2800);}
+function doHabit(){
+  if(mode==='idle'){
+    const h=[
+      ()=>{eyeTarget(-MX,0);setTimeout(()=>eyeTarget(0,0),750);},
+      ()=>{eyeTarget(MX,0);setTimeout(()=>eyeTarget(0,0),750);},
+      ()=>{eyeTarget(0,-MY);setTimeout(()=>eyeTarget(0,0),1300);},
+      ()=>{applyShape('happy');setAmbient('rgba(0,200,130,.1)');setTimeout(()=>{applyShape('normal');setAmbient();},950);},
+      ()=>{applyShape('wide');blink(48);setTimeout(()=>applyShape('normal'),750);},
+      ()=>halfBlink(),
+      ()=>{const d=Math.random()<.5?1:-1;eyeTarget(MX*d,0);setTimeout(()=>eyeTarget(-MX*d*.3,0),200);setTimeout(()=>eyeTarget(0,0),520);},
+      ()=>{applyShape('sleepy');setTimeout(()=>applyShape('normal'),1600);},
+    ];
+    h[Math.floor(Math.random()*h.length)]();
+  }
+  habitT=setTimeout(doHabit,3500+Math.random()*9000);
+}
+function speakAnim(){if(!isSpeaking)return;eyeTarget((Math.random()-.5)*14,(Math.random()-.5)*7);setTimeout(speakAnim,500+Math.random()*950);}
+
+// ═══════════════════════════
+// SPEECH RECOGNITION
+// ═══════════════════════════
+let recognition=null,isSpeaking=false,started=false,silenceTimer=null;
+
+function initRecognition(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return false;
+  recognition=new SR();
+  recognition.lang='id-ID';recognition.continuous=false;recognition.interimResults=true;
+  recognition.onstart=()=>{if(!isSpeaking)setMode('listening');};
+  recognition.onresult=(e)=>{
+    let interim='',final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;e.results[i].isFinal?(final+=t):(interim+=t);}
+    if(interim)showTranscript(interim);
+    if(final){clearTimeout(silenceTimer);recognition.stop();askGroq(final.trim());}
+    else{clearTimeout(silenceTimer);silenceTimer=setTimeout(()=>{try{recognition.stop();}catch{}},2000);}
+  };
+  recognition.onerror=(e)=>{clearTimeout(silenceTimer);if(!isSpeaking)scheduleRestart();};
+  recognition.onend=()=>{clearTimeout(silenceTimer);if(!isSpeaking)scheduleRestart();};
+  return true;
+}
+function scheduleRestart(){if(!isSpeaking)setTimeout(startListening,450);}
+function startListening(){if(!recognition||isSpeaking)return;try{recognition.start();}catch(e){setTimeout(startListening,400);}}
+
+// ═══════════════════════════
+// GROQ
+// ═══════════════════════════
+async function askGroq(text){
+  setMode('thinking');showTranscript(text);
+  shortHistory.push({role:'user',content:text});
+  if(shortHistory.length>MAX_HIST)shortHistory.splice(0,2);
+  saveHistory(shortHistory);
+  try{
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${GROQ_API_KEY}`,'Content-Type':'application/json'},
+      body:JSON.stringify({model:GROQ_MODEL,messages:[{role:'system',content:buildSystemPrompt()},...shortHistory],max_tokens:180,temperature:0.88})
+    });
+    if(!res.ok)throw new Error(await res.text());
+    const d=await res.json();
+    let reply=d.choices[0].message.content.trim();
+    reply=parseAndStoreMemory(reply);
+    shortHistory.push({role:'assistant',content:reply});
+    saveHistory(shortHistory);
+    speak(reply);
+  }catch(err){
+    console.error(err);
+    setMode('error');showTranscript('Waduh error nih 😅');
+    setTimeout(scheduleRestart,2500);
+  }
+}
+
+// ═══════════════════════════
+// TTS — iOS Safari fix
+// ═══════════════════════════
+let voiceList=[];
+function loadVoices(){voiceList=speechSynthesis.getVoices();}
+function getBestVoice(){return voiceList.find(v=>v.lang.startsWith('id'))||voiceList.find(v=>v.lang.startsWith('en-')&&v.localService)||voiceList[0];}
+
+// iOS fix: keep speech synthesis alive with silent ping
+// iOS pauses speechSynthesis when tab goes to background
+let resumeInterval=null;
+function startResumeKeepAlive(){
+  clearInterval(resumeInterval);
+  resumeInterval=setInterval(()=>{
+    if(window.speechSynthesis.paused){
+      window.speechSynthesis.resume();
+    }
+  },5000);
+}
+
+function speak(text){
+  if(!window.speechSynthesis){setMode('idle');scheduleRestart();return;}
+
+  // iOS: NEVER call cancel() between utterances — it breaks the queue
+  // Instead, just create new utterance directly
+  const utt=new SpeechSynthesisUtterance(text);
+  utt.lang='id-ID';
+  utt.rate=0.95;   // slightly slower = more stable on iOS
+  utt.pitch=1.1;
+  utt.volume=1;
+
+  // Load voices fresh each time (iOS sometimes loses them)
+  loadVoices();
+  const v=getBestVoice();
+  if(v)utt.voice=v;
+
+  // Timeout fallback — if onend never fires (iOS bug)
+  const estimatedDuration=Math.max(3000, text.length*80);
+  const watchdog=setTimeout(()=>{
+    console.warn('TTS watchdog triggered');
+    isSpeaking=false;
+    setMode('idle');
+    scheduleRestart();
+  },estimatedDuration+3000);
+
+  utt.onstart=()=>{
+    isSpeaking=true;
+    setMode('speaking');
+    showTranscript(text);
+    speakAnim();
+  };
+
+  utt.onend=()=>{
+    clearTimeout(watchdog);
+    isSpeaking=false;
+    setMode('happy');
+    setTimeout(()=>{
+      if(mode==='happy')setMode('idle');
+      scheduleRestart();
+    },900);
+  };
+
+  utt.onerror=(e)=>{
+    clearTimeout(watchdog);
+    console.warn('TTS error:',e.error);
+    isSpeaking=false;
+    setMode('idle');
+    scheduleRestart();
+  };
+
+  // iOS critical fix: wrap in setTimeout 0 so it fires after current event loop
+  setTimeout(()=>{
+    try{
+      window.speechSynthesis.speak(utt);
+    }catch(e){
+      clearTimeout(watchdog);
+      isSpeaking=false;
+      setMode('idle');
+      scheduleRestart();
+    }
+  },0);
+}
+
+function showTranscript(text){
+  const el=document.getElementById('transcript');
+  el.textContent=text;el.classList.add('show');
+  clearTimeout(el._t);
+  if(!isSpeaking)el._t=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ═══════════════════════════
+// INIT — requires user tap (iOS)
+// ═══════════════════════════
+document.getElementById('screen').addEventListener('click',()=>{
+  if(started)return;
+  started=true;
+  document.getElementById('hint').classList.add('hide');
+
+  // Must call getVoices after user gesture on iOS
+  loadVoices();
+  speechSynthesis.onvoiceschanged=loadVoices;
+
+  // Start keep-alive
+  startResumeKeepAlive();
+
+  // Init recognition
+  if(!initRecognition()){
+    showTranscript('Speech tidak support di browser ini');
+    return;
+  }
+
+  // Greet, then start listening after done
+  const mem=loadMemory();
+  const greeting=mem.length>0
+    ? `Hei, aku balik lagi! Aku masih inget ${mem.length} hal tentang kamu!`
+    : 'Hei! Aku LOOI! Ngomong aja, aku dengerin!';
+
+  speak(greeting);
+});
+
+window.addEventListener('load',()=>{
+  animLoop();scheduleBlink();idleMove();setTimeout(doHabit,2500);
+  loadVoices();
+  speechSynthesis.onvoiceschanged=loadVoices;
+});
+
+// iOS: resume speech when page becomes visible again
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && window.speechSynthesis.paused){
+    window.speechSynthesis.resume();
+  }
+});
+</script>
+</body>
+</html>
